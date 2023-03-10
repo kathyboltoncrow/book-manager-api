@@ -1,6 +1,8 @@
 package com.techreturners.bookmanager.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.techreturners.bookmanager.exceptionhandler.BookNotFoundException;
+import com.techreturners.bookmanager.exceptionhandler.DuplicateBookException;
 import com.techreturners.bookmanager.model.Book;
 import com.techreturners.bookmanager.model.Genre;
 import com.techreturners.bookmanager.service.BookManagerServiceImpl;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
@@ -19,9 +22,13 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
+// @ ContextConfiguration(classes = { BookManagerExceptionController.class })
 @AutoConfigureMockMvc
 @SpringBootTest
 public class BookManagerControllerTests {
@@ -39,7 +46,9 @@ public class BookManagerControllerTests {
 
     @BeforeEach
     public void setup(){
-        mockMvcController = MockMvcBuilders.standaloneSetup(bookManagerController).build();
+        mockMvcController = MockMvcBuilders.standaloneSetup(bookManagerController)
+                .setControllerAdvice(new BookManagerExceptionController())
+                .build();
         mapper = new ObjectMapper();
     }
 
@@ -99,7 +108,7 @@ public class BookManagerControllerTests {
     public void testPutMappingUpdateABook() throws Exception {
 
         Book book = new Book(4L, "Fabulous Four", "This is the description for the Fabulous Four", "Person Four", Genre.Fantasy);
-
+        when(mockBookManagerServiceImpl.getBookById(book.getId())).thenReturn(book);
         this.mockMvcController.perform(
                 MockMvcRequestBuilders.put("/api/v1/book/" + book.getId())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -122,5 +131,44 @@ public class BookManagerControllerTests {
 
         verify(mockBookManagerServiceImpl, times(1)).deleteBookById(book.getId());
     }
+
+    @Test
+    public void testDuplicateBookException() throws Exception {
+        Book book = new Book(4L, "Book Four", "This is the description for Book Four", "Person Four", Genre.Fantasy);
+
+        // when(mockBookManagerServiceImpl.getBookById(4l)).thenReturn(null);
+        when(mockBookManagerServiceImpl.insertBook(book)).thenReturn(book);
+
+        this.mockMvcController.perform(
+                        MockMvcRequestBuilders.post("/api/v1/book/")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(book)))
+                .andExpect(MockMvcResultMatchers.status().isCreated());
+
+        when(mockBookManagerServiceImpl.getBookById(4l)).thenReturn(book);
+        // when(mockBookManagerServiceImpl.insertBook(book)).thenReturn(book);
+
+        this.mockMvcController.perform(
+                        MockMvcRequestBuilders.post("/api/v1/book/")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(book)))
+                .andExpect(MockMvcResultMatchers.status().isSeeOther());
+
+        verify(mockBookManagerServiceImpl, times(2)).getBookById(4l);
+        verify(mockBookManagerServiceImpl, times(1)).insertBook(book);
+
+    }
+
+    @Test
+    public void testBookNotFoundException() throws Exception {
+
+        when(mockBookManagerServiceImpl.getBookById(0l)).thenReturn(null);
+        //   assertThrows(BookNotFoundException.class,() -> mockBookManagerServiceImpl.getBookById(null));
+        this.mockMvcController.perform(
+                        MockMvcRequestBuilders.get("/api/v1/book/0" )
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isNotFound());
+    }
+
 
 }

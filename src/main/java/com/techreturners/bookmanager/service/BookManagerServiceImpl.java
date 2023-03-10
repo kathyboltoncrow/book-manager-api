@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class BookManagerServiceImpl implements BookManagerService {
@@ -28,7 +29,14 @@ public class BookManagerServiceImpl implements BookManagerService {
 
     @Override
     public Book getBookById(Long id) {
-        return bookManagerRepository.findById(id).get();
+        Book book = null;
+        Optional<Book> optionalBook = bookManagerRepository.findById(id);
+
+        if (optionalBook.isPresent()) {
+            book = optionalBook.get();
+        }
+        return book;
+//        return bookManagerRepository.findById(id).get();
     }
 
     //User Story 4 - Update Book By Id Solution
