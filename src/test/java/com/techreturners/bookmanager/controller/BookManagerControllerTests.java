@@ -169,6 +169,4 @@ public class BookManagerControllerTests {
                                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(MockMvcResultMatchers.status().isNotFound());
     }
-
-
 }
